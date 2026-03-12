@@ -90,6 +90,7 @@ export const GptChatPageDetails = () => {
   const widgetId = searchParams.get('widget');
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const hasScrolledToBottomRef = useRef<boolean>(false);
   const { data } = useGetAccount();
   const {
     sendMessage,
@@ -109,24 +110,24 @@ export const GptChatPageDetails = () => {
     widgetId,
   });
 
-  // useEffect(() => {
-  //   const timeoutId = setTimeout(() => {
-  //     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  //   }, 100);
-
-  //   return () => clearTimeout(timeoutId);
-  // }, [conversations]);
-
   useEffect(() => {
-    const behavior = isBotStreaming ? 'auto' : 'smooth';
-    const delay = isBotStreaming ? 10 : 100;
+    hasScrolledToBottomRef.current = false;
+  }, [chatId]);
+
+  // Scroll to bottom when conversations load or update
+  useEffect(() => {
+    if (!isReady || conversations.length === 0) return;
+
+    const behavior = isBotStreaming ? 'auto' : hasScrolledToBottomRef.current ? 'smooth' : 'auto';
+    const delay = isBotStreaming ? 10 : hasScrolledToBottomRef.current ? 100 : 0;
 
     const timeoutId = setTimeout(() => {
       messagesEndRef.current?.scrollIntoView({ behavior });
+      hasScrolledToBottomRef.current = true;
     }, delay);
 
     return () => clearTimeout(timeoutId);
-  }, [conversations, isBotStreaming]);
+  }, [conversations, isBotStreaming, isReady]);
 
   const handleSendMessage = (message: string, files?: ChatFileMetadata[]) => {
     if (!message.trim()) return;
@@ -141,35 +142,33 @@ export const GptChatPageDetails = () => {
 
   const renderMessageContent = (content: string, isStreaming = false) => {
     return (
-      <div className="text-[15px]">
-        <div className="inline-block relative">
-          <MarkdownRenderer content={content} />
-          {isStreaming && (
-            <>
+      <div className="w-full min-w-0 relative">
+        <MarkdownRenderer content={content} isStreaming={isStreaming} />
+        {isStreaming && (
+          <>
+            <span
+              className="absolute w-[2px] h-[1.2em] bg-primary ml-[2px]"
+              style={{
+                bottom: '0.2em',
+                right: '-4px',
+                animation: 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+              }}
+            />
+
+            {[1, 2, 3, 4, 5].map((i) => (
               <span
-                className="absolute w-[2px] h-[1.2em] bg-primary ml-[2px]"
+                key={i}
+                className="absolute w-1 h-1 bg-primary rounded-full"
                 style={{
-                  bottom: '0.2em',
+                  bottom: '0.5em',
                   right: '-4px',
-                  animation: 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                  animation: `splash${i} 1.5s ease-out infinite`,
+                  opacity: 0,
                 }}
               />
-
-              {[1, 2, 3, 4, 5].map((i) => (
-                <span
-                  key={i}
-                  className="absolute w-1 h-1 bg-primary rounded-full"
-                  style={{
-                    bottom: '0.5em',
-                    right: '-4px',
-                    animation: `splash${i} 1.5s ease-out infinite`,
-                    opacity: 0,
-                  }}
-                />
-              ))}
-            </>
-          )}
-        </div>
+            ))}
+          </>
+        )}
       </div>
     );
   };
@@ -178,7 +177,7 @@ export const GptChatPageDetails = () => {
     <div className="flex flex-col h-full w-full bg-background relative">
       <div className="flex-1 overflow-y-auto scrollbar-hide">
         {isReady && (
-          <div className="max-w-4xl mx-auto px-4 py-6 pb-[250px] space-y-12">
+          <div className="w-full px-4 md:px-6 lg:px-8 py-4 pb-16 space-y-10">
             {conversations.map((msg, index) => (
               <div
                 key={index}
@@ -191,15 +190,15 @@ export const GptChatPageDetails = () => {
                 )}
 
                 <div
-                  className={`group flex-1 relative ${msg.type === 'user' ? 'flex flex-col items-end gap-2' : ''} ${msg.type === 'bot' ? 'min-h-[48px]' : ''}`}
+                  className={`group flex-1 min-w-0 relative ${msg.type === 'user' ? 'flex flex-col items-end gap-2' : ''} ${msg.type === 'bot' ? 'min-h-[48px]' : ''}`}
                 >
                   {msg.type === 'user' && msg.files && msg.files.length > 0 && (
-                    <div className="flex flex-col gap-2 max-w-[90%]">
+                    <div className="flex flex-col gap-2 max-w-[70%] md:max-w-[90%]">
                       {msg.files.map((file, fileIndex) => {
                         return (
                           <div
                             key={fileIndex}
-                            className="flex items-center gap-2.5 px-4 py-3 bg-muted/90 rounded-lg text-sm w-full"
+                            className="flex items-center gap-1 md:gap-2 px-2 py-1 md:px-4 md:py-3 bg-muted/90 rounded-lg text-sm w-full"
                           >
                             <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                             <span className="truncate font-medium flex-1" title={file.fileName}>
@@ -217,7 +216,7 @@ export const GptChatPageDetails = () => {
                   )}
 
                   <div
-                    className={`max-w-[90%] py-1 ${msg.type === 'user' && 'bg-accent rounded-2xl px-5'}`}
+                    className={`max-w-[90%] md:max-w-[80%] min-w-0 py-1 ${msg.type === 'user' && 'bg-accent rounded-xl px-5'}`}
                   >
                     {msg.type === 'user' ? (
                       <p className="text-[15px] leading-7 whitespace-pre-wrap">{msg.message}</p>
